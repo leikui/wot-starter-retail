@@ -1,33 +1,20 @@
 <template>
   <page-wraper>
     <view class="home">
-      <view class="home-header p3 pt-0 pb-0">
-        <view class="search" @click="navToSearchPage">
-          <wd-search custom-class="custom-search" hide-cancel placeholder-left disabled placeholder="mate60pro 火热发售中" />
+      <wd-img-cropper v-model="show" :img-src="src" @confirm="handleConfirm" @cancel="handleCancel">
+      </wd-img-cropper>
+      <view class="profile">
+        <view v-if="!imgSrc" class="img" @click="upload">
+          <wd-icon name="fill-camera" custom-class="img-icon"></wd-icon>
         </view>
-        <view class="swiper" v-if="imgSrcs.length">
-          <wd-swiper
-            :autoplay="autoplay"
-            :duration="duration"
-            :interval="interval"
-            image-mode="scaleToFill"
-            :current="current"
-            :indicator="{ type: 'dots' }"
-            :list="imgSrcs"
-          ></wd-swiper>
-        </view>
+        <wd-img v-if="imgSrc" round width="200px" height="200px" :src="imgSrc" mode="aspectFit"
+          custom-class="profile-img" @click="upload" />
+        <view style="font-size: 14px;">点击上传头像</view>
       </view>
-      <view class="home-main pt-0 pb-0">
-        <view class="tabs" v-if="tabList.length">
-          <wd-tabs v-model="currentTab" sticky>
-            <wd-tab v-for="(tab, index) in tabList" :title="tab.label" :key="index">
-              <view class="w-full box-border p-3">
-                <goods-list :goods="goods" @click="goodListClickHandle" @addcart="goodListAddCartHandle"></goods-list>
-                <wd-loadmore :state="state" @reload="onReTry" />
-              </view>
-            </wd-tab>
-          </wd-tabs>
-        </view>
+      <view style="margin-top: 100px;">
+        <wd-input type="text" v-model="value" placeholder="请输入用户名" />
+        <wd-input type="text" v-model="value1" placeholder="请输入用户名" />
+        <wd-input type="text" v-model="value2" placeholder="请输入用户名" />
       </view>
     </view>
   </page-wraper>
@@ -40,125 +27,35 @@ import { fetchHome } from '../../services/home/home'
 import { fetchGoodsList } from '../../services/good/fetchGoods'
 import { useToast } from 'wot-design-uni'
 const { show: showToast, loading: showLoading, close: hideLoading } = useToast()
+const src = ref<string>('')
+const imgSrc = ref<string>('')
+const show = ref<boolean>(false)
+const value = ref('dsauinmqjiownjdjoindasmk')
+const value1 = ref('dsauinmqjiownjdjoindasmk')
+const value2 = ref('dsauinmqjiownjdjoindasmk')
 
-const tabList = ref<KV<string>[]>([])
-const currentTab = ref<number>(0)
-const state = ref<any>('loading')
-
-const goods = ref<any[]>([])
-const goodsListLoadStatus = ref<number>(0)
-const current = ref<number>(1)
-
-const imgSrcs = ref<string[]>([])
-
-const autoplay = ref(true)
-const duration = ref<number>(500)
-const interval = ref<number>(5000)
-
-const goodListPagination = reactive({
-  index: 0,
-  num: 20
-})
-
-onMounted(() => {
-  init()
-})
-
-onReachBottom(() => {
-  if (goodsListLoadStatus.value === 0) {
-    loadGoodsList()
-  }
-})
-
-onPullDownRefresh(() => {
-  init()
-})
-
-const privateData = reactive({
-  tabIndex: 0
-})
-
-const init = () => {
-  // uniCloud
-  // 	.callFunction({
-  // 		name: 'home_swiper_get',
-  // 	})
-  // 	.then(e => {
-  // 		console.log(e);
-  // 	})
-  // 	.catch(e => {
-  // 		console.log(e);
-  // 	});
-
-  loadHomePage()
-}
-
-const loadHomePage = () => {
-  showLoading({})
-  fetchHome().then(({ swiper, tabList: tabs }) => {
-    tabList.value = tabs
-    imgSrcs.value = swiper
-    hideLoading()
-    loadGoodsList(true)
+function upload() {
+  uni.chooseImage({
+    count: 1,
+    success: (res) => {
+      const tempFilePaths = res.tempFilePaths[0]
+      src.value = tempFilePaths
+      show.value = true
+    }
   })
 }
-
-const tabChangeHandle = (e) => {
-  privateData.tabIndex = e.detail
-  loadGoodsList(true)
+function handleConfirm(event) {
+  const { tempFilePath } = event
+  imgSrc.value = tempFilePath
 }
-
-const onReTry = () => {
-  loadGoodsList()
+function imgLoaderror(res) {
+  console.log('加载失败', res)
 }
-
-const loadGoodsList = async (fresh = false) => {
-  if (fresh) {
-    uni.pageScrollTo({
-      scrollTop: 0
-    })
-  }
-
-  goodsListLoadStatus.value = 1
-
-  const pageSize = goodListPagination.num
-  let pageIndex = privateData.tabIndex * pageSize + goodListPagination.index + 1
-  if (fresh) {
-    pageIndex = 0
-  }
-
-  try {
-    const nextList = await fetchGoodsList(pageIndex, pageSize)
-    if (fresh) {
-      goods.value = nextList
-    } else {
-      goods.value = goods.value.concat(nextList)
-    }
-    goodsListLoadStatus.value = 0
-
-    goodListPagination.index = pageIndex
-    goodListPagination.num = pageSize
-  } catch (err) {
-    goodsListLoadStatus.value = 3
-  }
+function imgLoaded(res) {
+  console.log('加载成功', res)
 }
-
-const goodListClickHandle = ({ index }) => {
-  const { spuId } = goods.value[index]
-  // router.push(`/pages/goods/details/index?spuId=${spuId}`);
-}
-
-const goodListAddCartHandle = () => {
-  showToast('点击加入购物车')
-}
-
-const navToSearchPage = () => {
-  // router.push('/pages/goods/search/index');
-}
-
-const navToActivityDetail = ({ detail }) => {
-  const { index: promotionID = 0 } = detail || {}
-  // router.push(`/pages/promotion-detail/index?promotion_id=${promotionID}`);
+function handleCancel(event) {
+  console.log('取消', event)
 }
 </script>
 
@@ -171,10 +68,39 @@ const navToActivityDetail = ({ detail }) => {
   .home-header {
     .search {
       margin-bottom: 20rpx;
+
       :deep(.custom-search) {
         padding: 0;
       }
     }
   }
+}
+
+
+.profile {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  align-items: center;
+  height: 300px;
+}
+
+:deep(.profile-img) {
+  border: 1px solid rgba(0, 0, 0, 0.09);
+}
+.img {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0.04);
+  position: relative;
+}
+:deep(.img-icon) {
+  font-size: 60px;
+  color: #fff;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 </style>
